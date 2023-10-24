@@ -10,7 +10,7 @@ BINS = \
 .PHONY: all
 all: $(BINS)
 
-$(bin_path)/cell_distances: $(src_path)/cell_distances.c $(src_path)/fileread.c
+$(bin_path)/cell_distances: $(src_path)/cell_distances_final.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 .PHONY: clean
