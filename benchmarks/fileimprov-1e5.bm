@@ -1,0 +1,4 @@
+Benchmark 1: ./bin/cell_distances-improved -t20 -p4
+  Time (mean ± σ):      2.289 s ±  0.020 s    [User: 45.588 s, System: 0.029 s]
+  Range (min … max):    2.267 s …  2.323 s    10 runs
+ 
