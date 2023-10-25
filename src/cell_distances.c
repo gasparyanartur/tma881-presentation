@@ -8,12 +8,6 @@
 #define N_COORDS_PER_CELL 3 
 #define COORD_STR_LEN 8
 
-#define INPUT_PATH_EX_SMALL "data/example-input.txt"
-#define INPUT_PATH_EX_LARGE "data/large-input.txt"
-#define TMP_INPUT "data/tmp-input.txt"
-#define INPUT_PATH_1e4 "/home/hpc2023/cell_distances/test_data/cells_1e4"
-#define INPUT_PATH_1e5 "/home/hpc2023/cell_distances/test_data/cells_1e5"
-
 // points in [-10, 10] -> Max dist = Sqrt(20^2 + 20^2 + 20^2) = 34.64...
 // converting to ints, we get 34.64 * 100 = 3464 possible distance values.
 #define N_DISTS 3465
