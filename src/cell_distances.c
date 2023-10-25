@@ -5,8 +5,6 @@
 #include <inttypes.h>
 #include <omp.h>
 
-#define N_BLOCKS_PER_CHUNK 1
-#define N_CELLS_PER_BLOCK 1
 #define N_COORDS_PER_CELL 3 
 #define COORD_STR_LEN 8
 
@@ -39,13 +37,24 @@ static inline void read_file(FILE *stream, DTYPE *dst_arr, size_t start_cell, si
 static inline void print_file_chunk(char *file_str, size_t start_cell, size_t n_cells);
 
 
-const char *PATHS[5] = {
-    INPUT_PATH_EX_SMALL,
-    INPUT_PATH_EX_LARGE,
-    TMP_INPUT,
-    INPUT_PATH_1e4,
-    INPUT_PATH_1e5
+char *HDD_PATHS[] = {
+    "benchmark-data/data-1e1.txt",
+    "benchmark-data/data-1e2.txt",
+    "benchmark-data/data-1e3.txt",
+    "benchmark-data/data-1e4.txt",
+    "benchmark-data/data-1e5.txt",
 };
+
+char *SSD_PATHS[] = {
+    "/run/mount/scratch/hpcuser182/presentation/benchmark-data/data-1e1.txt",
+    "/run/mount/scratch/hpcuser182/presentation/benchmark-data/data-1e2.txt",
+    "/run/mount/scratch/hpcuser182/presentation/benchmark-data/data-1e3.txt",
+    "/run/mount/scratch/hpcuser182/presentation/benchmark-data/data-1e4.txt",
+    "/run/mount/scratch/hpcuser182/presentation/benchmark-data/data-1e5.txt",
+};
+
+int n_blocks_per_chunk = 106;
+int n_cells_per_block = 1024;
 
 
 int main(int argc, char* argv[]) {
@@ -56,8 +65,48 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
     const uint8_t n_threads = atoi(argv[1]+2);
-    const size_t file_type = (argc > 2) ? atoi(argv[2]+2) : 0;
-    const char *file_path = PATHS[file_type];
+    
+    char *file_path;
+    if (argc < 3)  {
+        file_path = HDD_PATHS[0];
+    }
+    else {
+        int path_num = atoi(argv[2]+2)-1;
+        char path_type = argv[2][1];
+        if (!((path_num >= 0) || (path_num < 5)) || !(path_type == 's' || path_type == 'h')) {
+            printf("Could not read file type, exiting.\n");
+            return -1; 
+        }
+
+        if (argv[2][1] == 's')  
+            file_path = SSD_PATHS[path_num];
+        else if (argv[2][1] == 'h')
+            file_path = HDD_PATHS[path_num];
+    }
+
+    if (argc < 4) {
+        n_blocks_per_chunk = 106;
+        n_cells_per_block = 1024;
+    }
+    else {
+        int prog_type = atoi(argv[3]+2)-1;
+        if (prog_type == 0) {
+            n_blocks_per_chunk = 1;
+            n_cells_per_block = 1;
+        }
+        else if (prog_type == 1) {
+            n_blocks_per_chunk = 1;
+            n_cells_per_block = 4096;
+        }
+        else if (prog_type == 2) {
+            n_blocks_per_chunk = 106;
+            n_cells_per_block = 1024;
+        }
+        else {
+            printf("Could not read prog_type, exiting.\n");
+            return -1;
+        }
+    }
 
     omp_set_num_threads(n_threads);
 
@@ -77,11 +126,11 @@ int main(int argc, char* argv[]) {
     fseek(stream, 0L, SEEK_SET);
 
     size_t cell_size = N_COORDS_PER_CELL;
-    size_t block_size = cell_size * N_CELLS_PER_BLOCK;
-    size_t chunk_size = block_size * N_BLOCKS_PER_CHUNK;
+    size_t block_size = cell_size * n_cells_per_block;
+    size_t chunk_size = block_size * n_blocks_per_chunk;
 
-    size_t block_n_cells = N_CELLS_PER_BLOCK;
-    size_t chunk_n_cells = block_n_cells * N_BLOCKS_PER_CHUNK;
+    size_t block_n_cells = n_cells_per_block;
+    size_t chunk_n_cells = block_n_cells * n_blocks_per_chunk;
 
     DTYPE *chunk1 = (DTYPE *)malloc(chunk_size*sizeof(DTYPE));
     DTYPE *chunk2 = (DTYPE *)malloc(chunk_size*sizeof(DTYPE));
@@ -116,12 +165,12 @@ int main(int argc, char* argv[]) {
 }
 
 static inline void compute_dist_between_chunks(DTYPE *chunk1, DTYPE *chunk2, uint64_t *dist_counts, size_t csz1, size_t csz2) {
-    size_t block_size = N_COORDS_PER_CELL * N_CELLS_PER_BLOCK;
-    for (size_t i = 0; i < csz1; i += N_COORDS_PER_CELL*N_CELLS_PER_BLOCK) {
+    size_t block_size = N_COORDS_PER_CELL * n_cells_per_block;
+    for (size_t i = 0; i < csz1; i += N_COORDS_PER_CELL*n_cells_per_block) {
         DTYPE *block1_start = chunk1 + i;
         size_t bsz1 = block1_start + block_size < chunk1 + csz1 ? block_size : (csz1 - i);
 
-        for (size_t j = 0; j < csz2; j += N_COORDS_PER_CELL*N_CELLS_PER_BLOCK) {
+        for (size_t j = 0; j < csz2; j += N_COORDS_PER_CELL*n_cells_per_block) {
             DTYPE *block2_start = chunk2 + j;
             size_t bsz2 = block2_start + block_size < chunk2 + csz2 ? block_size : (csz2 - j);
 
@@ -132,7 +181,7 @@ static inline void compute_dist_between_chunks(DTYPE *chunk1, DTYPE *chunk2, uin
 
 // csz is the number of coords in a chunk
 static inline void compute_dist_between_self_chunk(DTYPE *chunk, uint64_t *dist_counts, size_t csz) {
-    size_t block_size = N_COORDS_PER_CELL * N_CELLS_PER_BLOCK;
+    size_t block_size = N_COORDS_PER_CELL * n_cells_per_block;
     for (size_t i = 0; i < csz; i += block_size) {
         DTYPE *block1_start = chunk + i;
         size_t bsz1 = block1_start + block_size < chunk + csz ? block_size : (csz - i);
@@ -190,8 +239,8 @@ static inline void print_file_chunk(char *file_str, size_t start_cell, size_t n_
     for (size_t i = 0; i < n_cells; ++i) {
         printf("i: %lu\tstr: ", n_cells+i);
 
-        for (int j = 0; j < 3*N_CELLS_PER_BLOCK; ++j) 
-            printf("%c", file_str[i*3*N_CELLS_PER_BLOCK+j]);
+        for (int j = 0; j < 3*n_cells_per_block; ++j) 
+            printf("%c", file_str[i*3*n_cells_per_block+j]);
     } 
     printf("\n");
 }
