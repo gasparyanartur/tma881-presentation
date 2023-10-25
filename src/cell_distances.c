@@ -78,9 +78,9 @@ int main(int argc, char* argv[]) {
             return -1; 
         }
 
-        if (argv[2][1] == 's')  
+        if (path_type == 's')  
             file_path = SSD_PATHS[path_num];
-        else if (argv[2][1] == 'h')
+        else if (path_type == 'h')
             file_path = HDD_PATHS[path_num];
     }
 
